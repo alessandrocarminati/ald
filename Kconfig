@@ -1,0 +1,4 @@
+config AUDIT_REPL_INTERFACE
+	tristate "replaces audit_log_task_info with custom"
+	help
+	replaces audit_log_task_info with custom
