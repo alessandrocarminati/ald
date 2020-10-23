@@ -1,6 +1,7 @@
 # ALD
 Since the Linux 5.4 when the lockdown LSM has been implemented, the current linux 5.9.1 has not yet implemented any option to lift kernel lockdown status.
 The `SysReq+x` mentioned on the `man kernel_lockdown.7`, is still not yet been integrated with the main branch.
+More info, please check [my blog](http://carminatialessandro.blogspot.com/2020/10/kernel-lockdown.html)
 The following is my proposition to lift the kernel lockdown.
 
 # Typical Scenario
