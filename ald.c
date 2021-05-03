@@ -89,8 +89,12 @@ static void *kallsyms_ge_57(const char *name){
 static int init(void){
         int *kld     = (void *) kallsyms_ge_57("kernel_locked_down");
 	DODEBUG(KERN_INFO "kernel_locked_down is at 0x016 %p", kld);
-	*kld=0;
-	printk(KERN_INFO "ald - Module ready. Lockdown level resetted\n");
+	if (kld) {
+		*kld=0;
+		printk(KERN_INFO "ald - Module ready. Lockdown level resetted\n");
+	} else {
+		pr_info("ald - not supported for this kernel\n");
+	}
 	return 0;
 }
 
