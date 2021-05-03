@@ -9,7 +9,7 @@
 MODULE_LICENSE("Dual BSD/GPL");
 MODULE_AUTHOR("Alessandro Carminati");
 
-#define DEBUG
+//#define DEBUG
 
 #ifndef DODEBUG
 #ifdef DEBUG
