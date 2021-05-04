@@ -13,9 +13,9 @@ MODULE_AUTHOR("Alessandro Carminati");
 
 #ifndef DODEBUG
 #ifdef DEBUG
-#define DODEBUG( ... ) printk( __VA_ARGS__ );
+#define DODEBUG(fmt, ... ) printk(fmt, ##__VA_ARGS__ );
 #else
-#define DODEBUG( ... ) do { } while(0)
+#define DODEBUG(fmt, ... ) do { } while(0)
 #endif
 #endif
 
@@ -88,9 +88,13 @@ static void *kallsyms_ge_57(const char *name){
 
 static int init(void){
         int *kld     = (void *) kallsyms_ge_57("kernel_locked_down");
-	DODEBUG(KERN_INFO "kernel_locked_down is at 0x016%lx");
-	*kld=0;
-	printk(KERN_INFO "ald - Module ready. Lockdown level resetted\n");
+	DODEBUG(KERN_INFO "kernel_locked_down is at 0x016 %p", kld);
+	if (kld) {
+		*kld=0;
+		printk(KERN_INFO "ald - Module ready. Lockdown level resetted\n");
+	} else {
+		pr_info("ald - not supported for this kernel\n");
+	}
 	return 0;
 }
 

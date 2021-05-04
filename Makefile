@@ -4,3 +4,7 @@ obj ?= ./
 
 obj-$(CONFIG_ALD)			+= ald.o
 
+all: modules
+
+modules:
+	$(MAKE) -C $(KDIR) M=$$PWD KDIR=$$PWD modules
