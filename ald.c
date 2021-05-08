@@ -2,14 +2,12 @@
 #include <linux/audit.h>
 #include <linux/sched.h>
 #include <linux/version.h>
-#include <linux/mount.h>
-#include <linux/namei.h>
-#include <linux/slab.h>
+#include <linux/kprobes.h>
 
 MODULE_LICENSE("Dual BSD/GPL");
 MODULE_AUTHOR("Alessandro Carminati");
 
-//#define DEBUG
+#define DEBUG
 
 #ifndef DODEBUG
 #ifdef DEBUG
@@ -19,82 +17,57 @@ MODULE_AUTHOR("Alessandro Carminati");
 #endif
 #endif
 
-
-static int __init kernel_readf(struct file *file, unsigned long offset, char *addr, unsigned long count){
-#if LINUX_VERSION_CODE < KERNEL_VERSION(4, 14, 0)
-	return kernel_read(file, offset, addr, count);
-#else
-	loff_t pos = offset;
-	return kernel_read(file, addr, count, &pos);
-#endif
+int pre(struct kprobe *p, struct pt_regs *regs){
+	return 0;
 }
 
-static void *kallsyms_ge_57(const char *name){
-	struct file *file = NULL;
-	char *buf;
-	unsigned long entry = 0;
-	struct file_system_type *fstype = get_fs_type("proc");
-	struct vfsmount *mnt = vfs_kern_mount(fstype, 0, "proc", NULL);
-	struct dentry *root;
-	struct dentry *dentry;
-	if (fstype) module_put(fstype->owner);
-	if (IS_ERR(mnt)) return (void *) entry;
-	root = dget(mnt->mnt_root);
+void post(struct kprobe *p, struct pt_regs *regs, unsigned long flags) {
+}
 
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 5, 0)
-	inode_lock(root->d_inode);
-	dentry = lookup_one_len("kallsyms", root, 8);
-	inode_unlock(root->d_inode);
-#else
-	mutex_lock(&root->d_inode->i_mutex);
-	dentry = lookup_one_len("kallsyms", root, 8);
-	mutex_unlock(&root->d_inode->i_mutex);
-#endif
+int fault(struct kprobe *p, struct pt_regs *regs, int trapnr){
+	return 0;
+}
 
-	dput(root);
-	if (IS_ERR(dentry)) mntput(mnt);
-		else {
-			struct path path = { .mnt = mnt, .dentry = dentry };
-			file = dentry_open(&path, O_RDONLY, current_cred());
-			}
-	if (!(IS_ERR(file) || !file)){
-		buf = kmalloc(PAGE_SIZE, GFP_KERNEL);
-		if (buf) {
-			int len;
-			int offset = 0;
-			while ((len = kernel_readf(file, offset, buf, PAGE_SIZE - 1)) > 0) {
-				char *cp;
-				buf[len] = '\0';
-				cp = strrchr(buf, '\n');
-				if (!cp)
-					break;
-				*(cp + 1) = '\0';
-				offset += strlen(buf);
-				cp = strstr(buf, name);
-				if (!cp)
-					continue;
-				*cp = '\0';
-				while (cp > buf && *(cp - 1) != '\n')
-					cp--;
-				entry = simple_strtoul(cp, NULL, 16);
-				break;
-			}
-			kfree(buf);
+static struct kprobe k = {
+    .symbol_name = "kallsyms_lookup_name",
+    .pre_handler = pre,
+    .post_handler = post,
+    .fault_handler = fault
+};
+
+void *get_kallsyms_lookup_name_addr(void){
+        void *ret;
+	int dbg;
+
+	DODEBUG(KERN_INFO "ald - get_kallsyms_lookup_name_addr");
+        if ( (dbg=register_kprobe(&k)) < 0) {
+		DODEBUG(KERN_INFO "ald - register_kprobe error %d\n", dbg);
+		return NULL;
 		}
-		filp_close(file, NULL);
-		}
-	return (void *) entry;
+	DODEBUG(KERN_INFO "ald - probe registered\n");
+        ret = (void *) k.addr;
+	DODEBUG(KERN_INFO "ald - kallsyms_lookup_nameis at %px\n", ret);
+        unregister_kprobe(&k);
+        return ret;
 }
 
 static int init(void){
-        int *kld     = (void *) kallsyms_ge_57("kernel_locked_down");
-	DODEBUG(KERN_INFO "kernel_locked_down is at 0x016 %p", kld);
-	if (kld) {
-		*kld=0;
-		printk(KERN_INFO "ald - Module ready. Lockdown level resetted\n");
-	} else {
-		pr_info("ald - not supported for this kernel\n");
-	}
+	unsigned long (*kallsyms_lookup_name)(const char *);
+	int *kld;
+
+        kallsyms_lookup_name=get_kallsyms_lookup_name_addr();
+	if (kallsyms_lookup_name) {
+	        kld     = (int *) (*kallsyms_lookup_name)("kernel_locked_down");
+		DODEBUG(KERN_INFO "kernel_locked_down is at 0x016 %p", kld);
+		if (kld) {
+			*kld=0;
+			printk(KERN_INFO "ald - Module ready. Lockdown level resetted\n");
+			} else {
+				pr_info("ald - not supported for this kernel\n");
+				}
+		} else {
+			pr_info("ald - can't get kallsyms_lookup_name addr\n");
+			}
 	return 0;
 }
 
