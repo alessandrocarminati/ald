@@ -23,9 +23,10 @@ static unsigned long lockdown_addr = 0;
 module_param(lockdown_addr, ulong, 0);
 MODULE_PARM_DESC(lockdown_addr," lockdown_addr: Address where the kernel_lockdown symbol points to.");
 
-static char symname[2048];
-static char targetSymname[] = "kernel_locked_down+0x0/0x4\0";
+#define KSYM_NAME_PLUS_OFFSETS ( KSYM_NAME_LEN + 1 + 19 + 1 + 19 )
 
+static char symname[KSYM_NAME_PLUS_OFFSETS];
+static char targetSymname[] = "kernel_locked_down+0x0/0x4\0";
 
 typedef unsigned long (*kallsyms_lookup_name_t)(const char *name);
 
@@ -70,18 +71,19 @@ static int init(void){
 	int *kld;
 	unsigned long long save_msr;
 	unsigned long long new_msr;
+	int symname_len;
 
 	kld = 0;
 
 	if ( lockdown_addr ) {
 		DODEBUG(KERN_INFO "ald - lockdown_addr is %lx", lockdown_addr);
-		sprint_symbol(symname, lockdown_addr);
+		symname_len = sprint_symbol(symname, lockdown_addr);
 		DODEBUG(KERN_INFO "ald - ... this address acutally points at %s", symname);
 	} else {
 		DODEBUG(KERN_INFO "ald - Parmater lockdown_addr is 0 or not given.")
 	}
 
-	if ( lockdown_addr && ( strcmp(symname, targetSymname) == 0 ) ) {
+	if ( lockdown_addr && ( strncmp(symname, targetSymname, symname_len) == 0 ) ) {
 		kld = (int *) (lockdown_addr);
 	} else {
 		lockdown_addr = 0;
