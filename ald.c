@@ -19,9 +19,9 @@ MODULE_AUTHOR("Alessandro Carminati");
 #endif
 #endif
 
-static unsigned long lockdown_addr = 0;
-module_param(lockdown_addr, ulong, 0);
-MODULE_PARM_DESC(lockdown_addr," lockdown_addr: Address where the kernel_lockdown symbol points to.");
+static unsigned long kernel_locked_down_addr = 0;
+module_param(kernel_locked_down_addr, ulong, 0);
+MODULE_PARM_DESC(kernel_locked_down_addr," kernel_locked_down_addr: Address where the kernel_locked_down symbol points to.");
 
 #define KSYM_NAME_PLUS_OFFSETS ( KSYM_NAME_LEN + 1 + 19 + 1 + 19 )
 
@@ -66,8 +66,7 @@ static kallsyms_lookup_name_t get_kallsyms_lookup_name_addr(void){
 }
 
 static int init(void){
-	unsigned long (*kallsyms_lookup_name)(const char *name);
-	//kallsyms_lookup_name_t kallsyms_lookup_name __attribute__ ( nocf_check);
+	kallsyms_lookup_name_t kallsyms_lookup_name;
 	int *kld;
 	unsigned long long save_msr;
 	unsigned long long new_msr;
@@ -75,19 +74,21 @@ static int init(void){
 
 	kld = 0;
 
-	if ( lockdown_addr ) {
-		DODEBUG(KERN_INFO "ald - lockdown_addr is %lx", lockdown_addr);
-		symname_len = sprint_symbol(symname, lockdown_addr);
-		DODEBUG(KERN_INFO "ald - ... this address acutally points at %s", symname);
+	if ( kernel_locked_down_addr ) {
+		DODEBUG(KERN_INFO "ald - Parameter kernel_locked_down_addr is %lx", kernel_locked_down_addr);
+		symname_len = sprint_symbol(symname, kernel_locked_down_addr);
 	} else {
-		DODEBUG(KERN_INFO "ald - Parmater lockdown_addr is 0 or not given.")
+		DODEBUG(KERN_INFO "ald - Paramater kernel_locked_down_addr is 0 or not given.")
 	}
 
-	if ( lockdown_addr && ( strncmp(symname, targetSymname, symname_len) == 0 ) ) {
-		kld = (int *) (lockdown_addr);
+	if ( kernel_locked_down_addr && ( strncmp(symname, targetSymname, symname_len) == 0 ) ) {
+		DODEBUG(KERN_INFO "ald - The symbol of the address from the parameter actually matches %s.",
+			targetSymname);
+		kld = (int *) (kernel_locked_down_addr);
 	} else {
-		lockdown_addr = 0;
-		DODEBUG(KERN_INFO "ald - Parameter not pointing to the expected symbol. So ignoring paramter input.");
+		kernel_locked_down_addr = 0;
+		DODEBUG(KERN_INFO "ald - The parameter kernel_locked_down_addr was not given or does not match %s. So ignoring paramter input.",
+			targetSymname);
 
 		kallsyms_lookup_name=get_kallsyms_lookup_name_addr();
 
