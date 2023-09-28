@@ -93,19 +93,22 @@ static int init(void){
 		kallsyms_lookup_name=get_kallsyms_lookup_name_addr();
 
 		if (kallsyms_lookup_name) {
-			rdmsrl(MSR_IA32_S_CET, save_msr);
-			if ( (save_msr & CET_ENDBR_EN) ) {
-				DODEBUG(KERN_INFO "ald - IBT is enabled");
-				new_msr = save_msr & (~ CET_ENDBR_EN);
-				wrmsrl(MSR_IA32_S_CET, new_msr);
-				DODEBUG(KERN_INFO "ald - IBT temporarily disabled");
+			if (cpu_feature_enabled(X86_FEATURE_IBT)) {
+				rdmsrl(MSR_IA32_S_CET, save_msr);
+				if ( (save_msr & CET_ENDBR_EN) ) {
+					DODEBUG(KERN_INFO "ald - IBT is enabled");
+					new_msr = save_msr & (~ CET_ENDBR_EN);
+					wrmsrl(MSR_IA32_S_CET, new_msr);
+					DODEBUG(KERN_INFO "ald - IBT temporarily disabled");
+				};
+			} else {
+				DODEBUG(KERN_INFO "ald - IBT is not supported by CPU. So nothing to bother.")
 			};
 			kld = (int *) (*kallsyms_lookup_name)("kernel_locked_down");
 			DODEBUG(KERN_INFO "ald - kernel_locked_down from kallsyms_lookup_name at %px", kld);
-			//DODEBUG(KERN_INFO " ... this address acutally points at %s", symname);
-			if ( (save_msr & CET_ENDBR_EN) ) {
-				DODEBUG(KERN_INFO "ald - restoring IBT");
+			if ( cpu_feature_enabled(X86_FEATURE_IBT) && (save_msr & CET_ENDBR_EN) ) {
 				wrmsrl(MSR_IA32_S_CET, save_msr);
+				DODEBUG(KERN_INFO "ald - IBT restored");
 			};
 		} else {
 			pr_info("ald - can't get kallsyms_lookup_name addr\n");
