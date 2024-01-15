@@ -4,7 +4,10 @@
 #include <linux/version.h>
 #include <linux/kprobes.h>
 #include <linux/moduleparam.h>
-#ifdef CONFIG_X86
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 18, 0)
+#define KERNEL_HAS_CET
+#endif
+#if defined(CONFIG_X86) && defined(KERNEL_HAS_CET)
 #include <asm/msr.h>
 #endif
 
@@ -70,7 +73,7 @@ static kallsyms_lookup_name_t get_kallsyms_lookup_name_addr(void){
 static int init(void){
 	kallsyms_lookup_name_t kallsyms_lookup_name;
 	int *kld;
-#ifdef CONFIG_X86
+#if defined(CONFIG_X86) && defined(KERNEL_HAS_CET)
 	unsigned long long save_msr;
 	unsigned long long new_msr;
 #endif
@@ -97,7 +100,7 @@ static int init(void){
 		kallsyms_lookup_name=get_kallsyms_lookup_name_addr();
 
 		if (kallsyms_lookup_name) {
-#ifdef CONFIG_X86
+#if defined(CONFIG_X86) && defined(KERNEL_HAS_CET)
 			if (cpu_feature_enabled(X86_FEATURE_IBT)) {
 				rdmsrl(MSR_IA32_S_CET, save_msr);
 				if ( (save_msr & CET_ENDBR_EN) ) {
@@ -112,7 +115,7 @@ static int init(void){
 #endif
 			kld = (int *) (*kallsyms_lookup_name)("kernel_locked_down");
 			DODEBUG(KERN_INFO "ald - kernel_locked_down from kallsyms_lookup_name at %px", kld);
-#ifdef CONFIG_X86
+#if defined(CONFIG_X86) && defined(KERNEL_HAS_CET)
 			if ( cpu_feature_enabled(X86_FEATURE_IBT) && (save_msr & CET_ENDBR_EN) ) {
 				wrmsrl(MSR_IA32_S_CET, save_msr);
 				DODEBUG(KERN_INFO "ald - IBT restored");
